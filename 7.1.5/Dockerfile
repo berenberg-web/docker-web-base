@@ -1,12 +1,11 @@
-FROM php:7.1.3-apache
+FROM php:7.1.5-apache
 
-# Install vim, git, unzip, filebeat, postfix
+# Install git, unzip, filebeat, postfix
 RUN apt-get update -qq \
  && apt-get install -y --no-install-recommends \
     git \
     sendmail \
     unzip \
-    vim \
  && apt-get clean autoclean \
  && apt-get autoremove --yes \
  && rm -rf /var/lib/{apt,dpkg,cache,log}/
@@ -62,7 +61,7 @@ RUN apt-get update -qq \
 ENV PATH=/composer/vendor/bin:$PATH \
     COMPOSER_HOME=/composer \
     COMPOSER_ALLOW_SUPERUSER=1 \
-    COMPOSER_VERSION=1.4.1
+    COMPOSER_VERSION=1.4.2
 
 RUN curl -s -f -L -o /tmp/installer.php https://raw.githubusercontent.com/composer/getcomposer.org/da290238de6d63faace0343efbdd5aa9354332c5/web/installer \
  && php -r " \
