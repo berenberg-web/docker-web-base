@@ -3,19 +3,19 @@ FROM alpine:3.6
 COPY docker/ /
 
 ENV PHPIZE_DEPS \
-		autoconf \
-		dpkg-dev dpkg \
-		file \
-		g++ \
-		gcc \
-		libc-dev \
-		make \
-		pcre-dev \
-		pkgconf \
-		re2c
+    autoconf \
+    dpkg-dev dpkg \
+    file \
+    g++ \
+    gcc \
+    libc-dev \
+    make \
+    pcre-dev \
+    pkgconf \
+    re2c
 
 ENV NGINX_VERSION=1.13.3 \
-    PHP_VERSION=7.1.7
+    PHP_VERSION=7.1.8
 
 #
 # install php
@@ -42,54 +42,54 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     # download php source
  && set -xe \
  && apk add --no-cache --virtual .fetch-deps \
-	  gnupg \
-	  openssl \
+    gnupg \
+    openssl \
  && mkdir -p /usr/src \
  && cd /usr/src \
  && wget -O php.tar.xz "${PHP_URL}" \
  && wget -O php.tar.xz.asc "${PHP_ASC_URL}" \
  && export GNUPGHOME="$(mktemp -d)" \
  && for key in ${PHP_GPG_KEYS}; do \
-			gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
-		done \
+                        gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
+                done \
  && gpg --batch --verify php.tar.xz.asc php.tar.xz \
  && rm -rf "${GNUPGHOME}" \
  && apk del .fetch-deps \
     # build deps
  && apk add --no-cache --virtual .build-deps \
-		$PHPIZE_DEPS \
-		coreutils \
-		curl-dev \
-		libedit-dev \
-		libxml2-dev \
-		openssl-dev \
-		sqlite-dev \
+    $PHPIZE_DEPS \
+    coreutils \
+    curl-dev \
+    libedit-dev \
+    libxml2-dev \
+    openssl-dev \
+    sqlite-dev \
  && export CFLAGS="${PHP_CFLAGS}" \
-		CPPFLAGS="${PHP_CPPFLAGS}" \
-		LDFLAGS="${PHP_LDFLAGS}" \
-		# extract php source
- && docker-php-source extract \		
+    CPPFLAGS="${PHP_CPPFLAGS}" \
+    LDFLAGS="${PHP_LDFLAGS}" \
+    # extract php source
+ && docker-php-source extract \
  && cd /usr/src/php \
  && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
  && ./configure \
-		--build="$gnuArch" \
-		--with-config-file-path="${PHP_INI_DIR}" \
-		--with-config-file-scan-dir="${PHP_INI_DIR}/conf.d" \
-		--disable-cgi \
+    --build="$gnuArch" \
+    --with-config-file-path="${PHP_INI_DIR}" \
+    --with-config-file-scan-dir="${PHP_INI_DIR}/conf.d" \
+    --disable-cgi \
     # --enable-ftp is included here because ftp_ssl_connect() needs ftp to be compiled statically (see https://github.com/docker-library/php/issues/236)
-		--enable-ftp \
+    --enable-ftp \
     # --enable-mbstring is included here because otherwise there's no way to get pecl to use it properly (see https://github.com/docker-library/php/issues/195)
-		--enable-mbstring \
+    --enable-mbstring \
     # --enable-mysqlnd is included here because it's harder to compile after the fact than extensions are (since it's a plugin for several extensions, not an extension in itself)
-		--enable-mysqlnd \
-		--with-curl \
-		--with-libedit \
-		--with-openssl \
-		--with-zlib \
+    --enable-mysqlnd \
+    --with-curl \
+    --with-libedit \
+    --with-openssl \
+    --with-zlib \
     # bundled pcre is too old for s390x (which isn't exactly a good sign)
     # /usr/src/php/ext/pcre/pcrelib/pcre_jit_compile.c:65:2: error: #error Unsupported architecture
-		--with-pcre-regex=/usr \
-		--enable-fpm \
+    --with-pcre-regex=/usr \
+    --enable-fpm \
     --with-fpm-user=www-data \
     --with-fpm-group=www-data \
  && make -j "$(nproc)" \
@@ -106,6 +106,42 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
         | sort -u \
       )" \
  && apk add --no-cache --virtual .php-rundeps $runDeps \
+    # install the PHP extensions we need
+ && apk add --no-cache --virtual .build-deps \
+    freetype-dev \
+    icu-dev \
+    imagemagick-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
+    libtool \
+ && export \
+    CFLAGS="$PHP_CFLAGS" \
+    CPPFLAGS="$PHP_CPPFLAGS" \
+    LDFLAGS="$PHP_LDFLAGS" \
+ && pecl install \
+    imagick \
+ && docker-php-ext-configure gd \
+    --with-freetype-dir=/usr/include/ \
+    --with-gd \
+    --with-jpeg-dir=/usr/include/ \
+    --with-png-dir=/usr/include/ \
+ && docker-php-ext-configure intl \
+    --enable-intl \
+ && docker-php-ext-install \
+    gd \
+    intl \
+    opcache \
+    pdo_mysql \
+ && docker-php-ext-enable \
+    imagick \
+ && runDeps="$( \
+      scanelf --needed --nobanner --recursive /usr/local/lib/php/extensions \
+  	    | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+  	    | sort -u \
+  	    | xargs -r apk info --installed \
+  	    | sort -u \
+    )" \
+ && apk add --no-cache --virtual .php-ext-run-deps $runDeps \
  && apk del .build-deps \
     # https://github.com/docker-library/php/issues/443
  && pecl update-channels \
