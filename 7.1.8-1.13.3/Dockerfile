@@ -50,8 +50,8 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && wget -O php.tar.xz.asc "${PHP_ASC_URL}" \
  && export GNUPGHOME="$(mktemp -d)" \
  && for key in ${PHP_GPG_KEYS}; do \
-                        gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
-                done \
+      gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
+    done \
  && gpg --batch --verify php.tar.xz.asc php.tar.xz \
  && rm -rf "${GNUPGHOME}" \
  && apk del .fetch-deps \
