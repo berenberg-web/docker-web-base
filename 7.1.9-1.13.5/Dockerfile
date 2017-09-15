@@ -3,27 +3,25 @@ FROM alpine:3.6
 COPY docker/ /
 
 ENV NGINX_VERSION=1.13.5 \
-    PHP_VERSION=7.1.9
+    PHP_VERSION=7.1.9 \
+    PHPIZE_DEPS=" \
+        autoconf \
+        dpkg \
+        dpkg-dev \
+        file \
+        g++ \
+        gcc \
+        libc-dev \
+        make \
+        pcre-dev \
+        pkgconf \
+        re2c \
+    "
 
 #
 # install php
 #
-RUN export PHPIZE_DEPS=" \
-      autoconf \
-      dpkg-dev dpkg \
-      file \
-      g++ \
-      gcc \
-      libc-dev \
-      make \
-      pcre-dev \
-      pkgconf \
-      re2c \
-    "\
-    CFLAGS="$PHP_CFLAGS" \
-    CPPFLAGS="$PHP_CPPFLAGS" \
-    LDFLAGS="$PHP_LDFLAGS" \
- && PHP_INI_DIR=/usr/local/etc/php \
+RUN PHP_INI_DIR=/usr/local/etc/php \
  && PHP_GPG_KEYS=A917B1ECDA84AEC2B568FED6F50ABC807BD5DCD0\ 528995BFEDFBA7191D46839EF9BA0ADA31CBD89E \
  && PHP_URL="https://secure.php.net/get/php-${PHP_VERSION}.tar.xz/from/this/mirror" \
  && PHP_ASC_URL="https://secure.php.net/get/php-${PHP_VERSION}.tar.xz.asc/from/this/mirror" \
