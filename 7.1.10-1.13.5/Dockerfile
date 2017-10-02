@@ -2,20 +2,21 @@ FROM alpine:3.6
 
 COPY docker/ /
 
-ENV PHPIZE_DEPS \
-    autoconf \
-    dpkg-dev dpkg \
-    file \
-    g++ \
-    gcc \
-    libc-dev \
-    make \
-    pcre-dev \
-    pkgconf \
-    re2c
-
-ENV NGINX_VERSION=1.13.3 \
-    PHP_VERSION=7.1.8
+ENV NGINX_VERSION=1.13.5 \
+    PHP_VERSION=7.1.10 \
+    PHPIZE_DEPS=" \
+        autoconf \
+        dpkg \
+        dpkg-dev \
+        file \
+        g++ \
+        gcc \
+        libc-dev \
+        make \
+        pcre-dev \
+        pkgconf \
+        re2c \
+    "
 
 #
 # install php
@@ -43,7 +44,8 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && set -xe \
  && apk add --no-cache --virtual .fetch-deps \
     gnupg \
-    openssl \
+    # https://github.com/docker-library/php/issues/494
+    libressl \
  && mkdir -p /usr/src \
  && cd /usr/src \
  && wget -O php.tar.xz "${PHP_URL}" \
@@ -61,8 +63,8 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     coreutils \
     curl-dev \
     libedit-dev \
+    libressl-dev \
     libxml2-dev \
-    openssl-dev \
     sqlite-dev \
  && export CFLAGS="${PHP_CFLAGS}" \
     CPPFLAGS="${PHP_CPPFLAGS}" \
@@ -99,11 +101,10 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && cd / \
  && docker-php-source delete \
  && runDeps="$( \
-      scanelf --needed --nobanner --recursive /usr/local \
-        | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+      scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+        | tr ',' '\n' \
         | sort -u \
-        | xargs -r apk info --installed \
-        | sort -u \
+        | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
       )" \
  && apk add --no-cache --virtual .php-rundeps $runDeps \
     # install the PHP extensions we need
@@ -135,11 +136,10 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && docker-php-ext-enable \
     imagick \
  && runDeps="$( \
-      scanelf --needed --nobanner --recursive /usr/local/lib/php/extensions \
-  	    | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
-  	    | sort -u \
-  	    | xargs -r apk info --installed \
-  	    | sort -u \
+      scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
+        | tr ',' '\n' \
+        | sort -u \
+        | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
     )" \
  && apk add --no-cache --virtual .php-ext-run-deps $runDeps \
  && apk del .build-deps \
@@ -155,18 +155,18 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
     # build deps
  && apk add --no-cache --virtual .build-deps \
-    gcc \
-    libc-dev \
-    make \
-    openssl-dev \
-    pcre-dev \
-    zlib-dev \
-    linux-headers \
     curl \
-    gnupg \
-    libxslt-dev \
+    gcc \
     gd-dev \
     geoip-dev \
+    gnupg \
+    libc-dev \
+    libressl-dev \
+    libxslt-dev \
+    linux-headers \
+    make \
+    pcre-dev \
+    zlib-dev \
  && curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
  && curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz.asc  -o nginx.tar.gz.asc \
  && export GNUPGHOME="$(mktemp -d)" \
@@ -224,11 +224,10 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && apk add --no-cache --virtual .gettext gettext \
  && mv /usr/bin/envsubst /tmp/ \
  && runDeps="$( \
-      scanelf --needed --nobanner /usr/sbin/nginx /usr/lib/nginx/modules/*.so /tmp/envsubst \
-        | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+      scanelf --needed --nobanner --format '%n#p' /usr/sbin/nginx /usr/lib/nginx/modules/*.so /tmp/envsubst \
+        | tr ',' '\n' \
         | sort -u \
-        | xargs -r apk info --installed \
-        | sort -u \
+        | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
     )" \
  && apk add --no-cache --virtual .nginx-rundeps $runDeps \
  && apk del .build-deps \
