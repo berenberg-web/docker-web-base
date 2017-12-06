@@ -21,7 +21,7 @@ ENV NGINX_VERSION=1.13.7 \
 # install php
 #
 RUN PHP_INI_DIR=/usr/local/etc/php \
- && PHP_GPG_KEYS=1729F83938DA44E27BA0F4D3DBDB397470D12172\ B1B44D8F021E4E2D6021E995DC9FF8D3EE5AF27F \
+ && PHP_GPG_KEYS=A917B1ECDA84AEC2B568FED6F50ABC807BD5DCD0\ 528995BFEDFBA7191D46839EF9BA0ADA31CBD89E \
  && PHP_URL="https://secure.php.net/get/php-${PHP_VERSION}.tar.xz/from/this/mirror" \
  && PHP_ASC_URL="https://secure.php.net/get/php-${PHP_VERSION}.tar.xz.asc/from/this/mirror" \
  && PHP_CFLAGS="-fstack-protector-strong -fpic -fpie -O2" \
