@@ -1,9 +1,9 @@
-FROM alpine:3.6
+FROM alpine:3.7
 
 COPY docker/ /
 
-ENV NGINX_VERSION=1.13.6 \
-    PHP_VERSION=7.1.11 \
+ENV NGINX_VERSION=1.13.8 \
+    PHP_VERSION=7.2.1 \
     PHPIZE_DEPS=" \
         autoconf \
         dpkg \
@@ -13,7 +13,6 @@ ENV NGINX_VERSION=1.13.6 \
         gcc \
         libc-dev \
         make \
-        pcre-dev \
         pkgconf \
         re2c \
     "
@@ -22,7 +21,7 @@ ENV NGINX_VERSION=1.13.6 \
 # install php
 #
 RUN PHP_INI_DIR=/usr/local/etc/php \
- && PHP_GPG_KEYS=A917B1ECDA84AEC2B568FED6F50ABC807BD5DCD0\ 528995BFEDFBA7191D46839EF9BA0ADA31CBD89E \
+ && PHP_GPG_KEYS=1729F83938DA44E27BA0F4D3DBDB397470D12172\ B1B44D8F021E4E2D6021E995DC9FF8D3EE5AF27F \
  && PHP_URL="https://secure.php.net/get/php-${PHP_VERSION}.tar.xz/from/this/mirror" \
  && PHP_ASC_URL="https://secure.php.net/get/php-${PHP_VERSION}.tar.xz.asc/from/this/mirror" \
  && PHP_CFLAGS="-fstack-protector-strong -fpic -fpie -O2" \
@@ -52,7 +51,10 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && wget -O php.tar.xz.asc "${PHP_ASC_URL}" \
  && export GNUPGHOME="$(mktemp -d)" \
  && for key in ${PHP_GPG_KEYS}; do \
-      gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
+      gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key" || \
+      gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$key" || \
+      gpg --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys "$key" || \
+      gpg --keyserver pgp.mit.edu --recv-keys "$key"; \
     done \
  && gpg --batch --verify php.tar.xz.asc php.tar.xz \
  && rm -rf "${GNUPGHOME}" \
@@ -88,9 +90,10 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     --with-libedit \
     --with-openssl \
     --with-zlib \
-    # bundled pcre is too old for s390x (which isn't exactly a good sign)
-    # /usr/src/php/ext/pcre/pcrelib/pcre_jit_compile.c:65:2: error: #error Unsupported architecture
-    --with-pcre-regex=/usr \
+    \
+    # bundled pcre does not support JIT on s390x
+    # https://manpages.debian.org/stretch/libpcre3-dev/pcrejit.3.en.html#AVAILABILITY_OF_JIT_SUPPORT
+    $(test "$gnuArch" = 's390x-linux-gnu' && echo '--without-pcre-jit') \
     --enable-fpm \
     --with-fpm-user=www-data \
     --with-fpm-group=www-data \
@@ -167,8 +170,8 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     make \
     pcre-dev \
     zlib-dev \
- && curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
- && curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz.asc  -o nginx.tar.gz.asc \
+ && curl -fSL https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
+ && curl -fSL https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz.asc  -o nginx.tar.gz.asc \
  && export GNUPGHOME="$(mktemp -d)" \
  && found=''; \
     for server in \
@@ -230,6 +233,7 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
         | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
     )" \
  && apk add --no-cache --virtual .nginx-rundeps $runDeps \
+ && apk add --no-cache --virtual .docker-healthcheck-deps fcgi \
  && apk del .build-deps \
  && apk del .gettext \
  && mv /tmp/envsubst /usr/local/bin/ \
@@ -241,6 +245,13 @@ WORKDIR /var/www/html
 EXPOSE 80
 
 STOPSIGNAL SIGTERM
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=2 \
+    CMD \
+    SCRIPT_NAME=/ping \
+    SCRIPT_FILENAME=/ping \
+    REQUEST_METHOD=GET \
+    cgi-fcgi -bind -connect /var/run/fpm_socket || exit 1
 
 ENTRYPOINT ["docker-php-entrypoint"]
 
