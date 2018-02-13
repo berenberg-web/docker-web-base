@@ -2,8 +2,8 @@ FROM alpine:3.7
 
 COPY docker/ /
 
-ENV NGINX_VERSION=1.13.7 \
-    PHP_VERSION=7.2.0 \
+ENV NGINX_VERSION=1.13.8 \
+    PHP_VERSION=7.2.2 \
     PHPIZE_DEPS=" \
         autoconf \
         dpkg \
@@ -66,6 +66,7 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     curl-dev \
     libedit-dev \
     libressl-dev \
+    libsodium-dev \
     libxml2-dev \
     sqlite-dev \
  && export CFLAGS="${PHP_CFLAGS}" \
@@ -86,6 +87,8 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     --enable-mbstring \
     # --enable-mysqlnd is included here because it's harder to compile after the fact than extensions are (since it's a plugin for several extensions, not an extension in itself)
     --enable-mysqlnd \
+    # https://wiki.php.net/rfc/libsodium
+    --with-sodium \
     --with-curl \
     --with-libedit \
     --with-openssl \
@@ -170,8 +173,8 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     make \
     pcre-dev \
     zlib-dev \
- && curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
- && curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz.asc  -o nginx.tar.gz.asc \
+ && curl -fSL https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
+ && curl -fSL https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz.asc  -o nginx.tar.gz.asc \
  && export GNUPGHOME="$(mktemp -d)" \
  && found=''; \
     for server in \
@@ -246,7 +249,7 @@ EXPOSE 80
 
 STOPSIGNAL SIGTERM
 
-HEALTHCHECK --interval=1m --timeout=3s --retries=2 \
+HEALTHCHECK --interval=5s --timeout=3s --retries=2 \
     CMD \
     SCRIPT_NAME=/ping \
     SCRIPT_FILENAME=/ping \
