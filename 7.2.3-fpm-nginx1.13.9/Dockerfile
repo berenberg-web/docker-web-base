@@ -2,8 +2,8 @@ FROM alpine:3.7
 
 COPY docker/ /
 
-ENV NGINX_VERSION=1.13.8 \
-    PHP_VERSION=7.2.1 \
+ENV NGINX_VERSION=1.13.9 \
+    PHP_VERSION=7.2.3 \
     PHPIZE_DEPS=" \
         autoconf \
         dpkg \
@@ -66,6 +66,7 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     curl-dev \
     libedit-dev \
     libressl-dev \
+    libsodium-dev \
     libxml2-dev \
     sqlite-dev \
  && export CFLAGS="${PHP_CFLAGS}" \
@@ -86,6 +87,8 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
     --enable-mbstring \
     # --enable-mysqlnd is included here because it's harder to compile after the fact than extensions are (since it's a plugin for several extensions, not an extension in itself)
     --enable-mysqlnd \
+    # https://wiki.php.net/rfc/libsodium
+    --with-sodium \
     --with-curl \
     --with-libedit \
     --with-openssl \
@@ -240,13 +243,11 @@ RUN PHP_INI_DIR=/usr/local/etc/php \
  && ln -sf /dev/stdout /var/log/nginx/access.log \
  && ln -sf /dev/stderr /var/log/nginx/error.log
 
-WORKDIR /var/www/html
-
 EXPOSE 80
 
 STOPSIGNAL SIGTERM
 
-HEALTHCHECK --interval=10s --timeout=3s --retries=2 \
+HEALTHCHECK --interval=5s --timeout=3s --retries=2 \
     CMD \
     SCRIPT_NAME=/ping \
     SCRIPT_FILENAME=/ping \
